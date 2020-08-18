@@ -60,6 +60,9 @@ but you'll have to implement those three above instructions first!
 ## Step 0: IMPORTANT: inventory what is here!
 
 * Make a list of files here.
+  - examples folder that holds example programs to run on ls-8
+  - cpu.py: The CPU class, has methods load, alu, trace and run. Load: loads a program into memory. ALU: Arithmetic logic unit, performs math functions. Trace: Prints out the CPU state, handy for debugging. Run: Runs the CPU. ALU and Run method need to be completed
+  - ls8.py: script to run the CPU class
 * Write a short 3-10-word description of what each file does.
 * Note what has been implemented, and what hasn't.
 * Read this whole file.
