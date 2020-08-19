@@ -13,37 +13,104 @@ class CPU:
         self.pc = 0
         # Memory with 256 bits
         self.ram = [0b0] * 256
+        self.running = True
+        self.address = 0
+        # branch_table
+        self.branch_table = {
+            0b00000001: self.HLT,
+            0b10000010: self.LDI,
+            0b01000111: self.PRN,
+            0b10100010: self.MUL,
+        }
 
+    'Create handles for each method in branch_table'
 
+    def HLT(self, operand_a = None, operand_b= None):
+        # Turn running to false
+        self.running = False
+
+    def LDI(self, operand_a = None, operand_b = None):
+        # Set the value of a register to an integer
+        self.reg[operand_a] = operand_b
+
+    def PRN(self, operand_a = None, operand_b = None):
+        # Print the value stored in the given register
+        print(self.reg[operand_a])
+
+    def MUL(self, operand_a = None, operand_b = None):
+        # Multiply the two values and store the result in registerA
+        self.alu("MUL", operand_a, operand_b)
 
     def load(self):
         """Load a program into memory."""
 
-        address = 0
+        import sys
 
-        # For now, we've just hardcoded a program:
+        if len(sys.argv) != 2:
+            print("usage: comp.py progname")
+            sys.exit(1)
+        try:
+            with open(sys.argv[1]) as f:
+                for line in f:
+                    line = line.strip()
+                    temp = line.split()
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+                    if len(temp) == 0:
+                        continue
+                        
+                    if temp[0][0] == "#":
+                        continue
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                    try:
+                        self.ram[self.address] = int(temp[0], 2)
+
+                    except ValueError:
+                        print(f"Invlaid number: {temp[0]}")
+                        sys.exit(1)
+
+                    self.address += 1
+
+
+        except FileNotFoundError:
+            print(f"Couldn't open {sys.argv[1]}")
+            sys.exit(2)
+
+        if self.address == 0:
+            print('Program was empty!')
+            sys.exit(3)
 
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
+        # Given reg_a and reg_b, perform the math between the two and store result in reg_a
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        # elif op == "AND":
+
+        # elif op == "CMP":
+
+        # elif op == "DEC":
+
+        # elif op == "DIV":
+
+        # elif op == "INC":
+
+        # elif op == "MOD":
+
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
+
+        # elif op == "NOT":
+
+        # elif op == "OR":
+
+        # elif op == "SHL":
+
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+
+        # elif op == "XOR":
+        
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -69,36 +136,32 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        running = True
         
-        while running:
+        while self.running:
             # Set the instruction register using the point counter
             ir = self.ram[self.pc]
             # save the next two operands; some programs will use them
             operand_a = self.ram[self.pc +1]
             operand_b = self.ram[self.pc +2]
-            
-            # Tell the CPU what to do when given a specific instruction
-            # HLT
-            if ir == 0b00000001:
-                # Stop the program
-                running = False
-                # Increment counter, even though the program is stopped
-                self.pc += 1
 
-            # LDI - set the value of a register to an integer
-            # Uses pc and pc+1, pc+2
-            elif ir == 0b10000010:
-                # Use operand_a and operand_b
-                self.reg[operand_a] = operand_b
-                # Increase pc by 3
-                self.pc += 3
-            # PRN - Print the value stored in the given register
-            # Use operand_a
-            elif ir == 0b01000111:
-                # print value in register
-                print(self.reg[operand_a])
-                self.pc += 2
+            if ir in self.branch_table:
+                self.branch_table[ir](operand_a, operand_b)
+
+            # Catch-all
+            else:
+                self.pc += 1
+                print(f"Unknown instruction {ir} at address {self.pc}")
+                sys.exit(1)
+
+            # Read the number of arguments from the program byte, 
+            # increment the pc from that info
+
+            # Shift the ir to the right 6 to leave just the two bits telling the num of arguments 
+            number_of_arguments = ir >> 6
+            # Add 1 to account for the first instruction (plus the two arguments)
+            size_of_this_instruction = number_of_arguments + 1
+            # Adjust the pc accordingly
+            self.pc += size_of_this_instruction
 
     def ram_read(self, address):
         """Accept the address to read and return the value stored there"""
@@ -108,3 +171,4 @@ class CPU:
         """Accept a value to write and the address to write it to"""
         self.ram[address] = value
     
+
