@@ -9,6 +9,8 @@ class CPU:
         """Construct a new CPU."""
         # 8 registers
         self.reg = [0] * 8
+        # Stack pointer - reg 7 per spec
+        self.reg[7] = 0xf4
         # Point counter
         self.pc = 0
         # Memory with 256 bits
@@ -21,6 +23,8 @@ class CPU:
             0b10000010: self.LDI,
             0b01000111: self.PRN,
             0b10100010: self.MUL,
+            0b01000101: self.PUSH,
+            0b01000110: self.POP
         }
 
     'Create handles for each method in branch_table'
@@ -32,6 +36,7 @@ class CPU:
     def LDI(self, operand_a = None, operand_b = None):
         # Set the value of a register to an integer
         self.reg[operand_a] = operand_b
+        # print(operand_a, operand_b)
 
     def PRN(self, operand_a = None, operand_b = None):
         # Print the value stored in the given register
@@ -40,6 +45,22 @@ class CPU:
     def MUL(self, operand_a = None, operand_b = None):
         # Multiply the two values and store the result in registerA
         self.alu("MUL", operand_a, operand_b)
+
+    def PUSH(self, operand_a = None, operand_b = None):
+        # Decement the sp
+        self.reg[7] -= 1
+        # Get value in given register
+        value = self.reg[operand_a]
+        # Store it at the top of the stack
+        self.ram[self.reg[7]] = value
+
+    def POP(self, operand_a = None, operand_b = None):
+        # Copy value from the sp reg
+        value = self.ram[self.reg[7]]
+        # Store it in the given register
+        self.reg[operand_a] = value
+        # Increment the sp by 1
+        self.reg[7] += 1
 
     def load(self):
         """Load a program into memory."""
