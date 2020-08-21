@@ -184,6 +184,44 @@ class CPU:
         # jump to the address stored in the given register
         self.pc = self.reg[operand_a]
 
+    def JEQ(self, operand_a = None, operand_b = None):
+        # If equal flag is set true, jump to the address stored in the given register
+        if self.flag == 0b00000001:
+            self.pc = self.reg[operand_a]
+        else:
+            self.pc += 2
+    
+    def JNE(self, operand_a = None, operand_b = None):
+        # If not equal, jump to the address stored in the given register
+        if self.flag == 0b00000000:
+            self.pc = self.reg[operand_a]
+        else:
+            self.pc += 2
+
+    def MOD(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("MOD", operand_a, operand_b)
+
+    def SHL(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("SHL", operand_a, operand_b)
+
+    def SHR(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("SHR", operand_a, operand_b)
+
+    def XOR(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("XOR", operand_a, operand_b)
+
+    def OR(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("OR", operand_a, operand_b)
+
+    def NOT(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("NOT", operand_a, operand_b)
+
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -192,9 +230,11 @@ class CPU:
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
 
+        # Multiply the values in two registers together and store the result in registerA
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
 
+        # Subtract the value in the second register from the first, storing the result in registerA
         elif op == "SUB":
             self.reg[reg_a] -= self.reg[reg_b]
 
@@ -205,6 +245,37 @@ class CPU:
             else:
                 self.flag = 0b00000000
 
+        # Bitwise-AND the values in registerA and registerB, then store the result in registerA
+        elif op == "AND":
+            self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
+
+        # Divide the value in the first register by the value in the second, storing the remainder of the result in registerA
+        elif op == "MOD":
+            if self.reg[reg_b] == 0:
+                print("Cannot mod by value of 0")
+                self.HLT(reg_a, reg_b)
+            else:
+                self.reg[reg_a] %= self.reg[reg_b]
+
+        # Shift the value in registerA left by the number of bits specified in registerB, filling the low bits with 0
+        elif op == "SHL":
+            self.reg[reg_a] << self.reg[reg_b]
+
+        # Shift the value in registerA right by the number of bits specified in registerB, filling the high bits with 0
+        elif op == "SHR":
+            self.reg[reg_a] >> self.reg[reg_b]
+
+        # Perform a bitwise-OR between the values in registerA and registerB, storing the result in registerA
+        elif op == "OR":
+            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+
+        # Perform a bitwise-NOT on the value in a register, storing the result in the register
+        elif op == "NOT":
+            self.reg[reg_a] = ~self.reg[reg_a]
+
+        # Perform a bitwise-XOR between the values in registerA and registerB, storing the result in registerA
+        elif op == "XOR":
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
 
         else:
             raise Exception("Unsupported ALU operation")
@@ -251,7 +322,6 @@ class CPU:
             # If the 5th digit is a 1, then don't automatically set the pc
             # Mask everything but the digit we are interested in
             if ir & 0b00010000 == 0:
-                # print(f'Setting PC for ir: {ir}')
                 # Read the number of arguments from the program byte, 
                 # increment the pc from that info
 
@@ -261,8 +331,6 @@ class CPU:
                 size_of_this_instruction = number_of_arguments + 1
                 # Adjust the pc accordingly
                 self.pc += size_of_this_instruction
-            # else:
-                # print('not resetting the pc')
 
     def ram_read(self, address):
         """Accept the address to read and return the value stored there"""
