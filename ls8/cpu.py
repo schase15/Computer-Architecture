@@ -2,6 +2,35 @@
 
 import sys
 
+import sys
+
+# MAIN OPCODES
+ADD = 0b10100000
+CALL = 0b01010000
+CMP = 0b10100111
+HLT = 0b00000001
+JEQ = 0b01010101
+JMP = 0b01010100
+JNE = 0b01010110
+LDI = 0b10000010
+MUL = 0b10100010
+NOP = 0b00000000
+POP = 0b01000110
+PRN = 0b01000111
+PUSH = 0b01000101
+RET = 0b00010001
+SUB = 0b10100001
+
+# BITWISE ALU OPCODES
+MOD = 0b10100100
+SHL = 0b10101100
+SHR = 0b10101101
+XOR = 0b10101011
+OR = 0b10101010
+NOT = 0b01101001
+
+
+
 class CPU:
     """Main CPU class."""
 
@@ -9,41 +38,245 @@ class CPU:
         """Construct a new CPU."""
         # 8 registers
         self.reg = [0] * 8
+        # Stack pointer - reg 7 per spec
+        self.reg[7] = 0xf4
         # Point counter
         self.pc = 0
         # Memory with 256 bits
         self.ram = [0b0] * 256
-
-
+        self.running = True
+        self.address = 0
+        self.flag = 0b00000000
+        # branch_table
+        self.branch_table = {
+            ADD: self.ADD,
+            CALL: self.CALL,
+            CMP: self.CMP,
+            HLT: self.HLT,
+            JEQ: self.JEQ,
+            JMP: self.JMP,
+            JNE: self.JNE,
+            LDI: self.LDI,
+            MUL: self.MUL,
+            NOP: self.NOP,
+            POP: self.POP,            
+            PRN: self.PRN,
+            PUSH: self.PUSH,
+            RET: self.RET,
+            SUB: self.SUB,
+            MOD: self.MOD,
+            SHL: self.SHL,
+            SHR: self.SHR,
+            XOR: self.XOR,
+            OR: self.OR,
+            NOT: self.NOT
+        }
 
     def load(self):
         """Load a program into memory."""
 
-        address = 0
+        import sys
 
-        # For now, we've just hardcoded a program:
+        if len(sys.argv) != 2:
+            print("usage: comp.py progname")
+            sys.exit(1)
+        try:
+            with open(sys.argv[1]) as f:
+                for line in f:
+                    line = line.strip()
+                    temp = line.split()
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+                    if len(temp) == 0:
+                        continue
+                        
+                    if temp[0][0] == "#":
+                        continue
 
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                    try:
+                        self.ram[self.address] = int(temp[0], 2)
+
+                    except ValueError:
+                        print(f"Invlaid number: {temp[0]}")
+                        sys.exit(1)
+
+                    self.address += 1
+
+        except FileNotFoundError:
+            print(f"Couldn't open {sys.argv[1]}")
+            sys.exit(2)
+
+        if self.address == 0:
+            print('Program was empty!')
+            sys.exit(3)
+
+
+    'Create handles for each method in branch_table'
+
+    def HLT(self, operand_a = None, operand_b= None):
+        # Turn running to false
+        self.running = False
+
+    def LDI(self, operand_a = None, operand_b = None):
+        # Set the value of a register to an integer
+        self.reg[operand_a] = operand_b
+
+    def PRN(self, operand_a = None, operand_b = None):
+        # Print the value stored in the given register
+        print(self.reg[operand_a])
+
+    def MUL(self, operand_a = None, operand_b = None):
+        # Multiply the two values - handled by alu
+        self.alu("MUL", operand_a, operand_b)
+
+    def SUB(self, operand_a = None, operand_b = None):
+        # Subtract the two values - handled by alu
+        self.alu("SUB", operand_a, operand_b)
+
+    def ADD(self, operand_a = None, operand_b = None):
+        # Add the two values - handled by alu
+        self.alu("ADD", operand_a, operand_b)
+
+    def CMP(self, operand_a = None, operand_b = None):
+        # Comparison of the two values - handled by the alu
+        self.alu('CMP', operand_a, operand_b)
+
+    def PUSH(self, operand_a = None, operand_b = None):
+        # Decement the sp
+        self.reg[7] -= 1
+        # Get value in given register
+        value = self.reg[operand_a]
+        # Store it at the top of the stack
+        self.ram[self.reg[7]] = value
+
+    def POP(self, operand_a = None, operand_b = None):
+        # Copy value from the sp reg
+        value = self.ram[self.reg[7]]
+        # Store it in the given register
+        self.reg[operand_a] = value
+        # Increment the sp by 1
+        self.reg[7] += 1
+
+    def CALL(self, operand_a = None, operand_b = None):
+        # Address we want to come back to after the call
+        ret_addr = self.pc +2
+        # Push return address to stack
+        self.reg[7] -= 1
+        self.ram[self.reg[7]] = ret_addr
+    
+        # Call the subroutine (function calls)
+        # PC +1 will tell us which register to look at that holds the function to call
+        reg_num = self.ram[operand_a]
+        self.pc = self.reg[reg_num]
+
+    def RET(self, operand_a = None, operand_b = None):
+        # Pop the retrun addr off the stack
+        ret_addr = self.ram[self.reg[7]]
+        # Increment the sp
+        self.reg[7] +=1
+        # Set the PC to it
+        self.pc = ret_addr
+
+    def NOP(self, operand_a = None, operand_b = None):
+        # No operation, do nothing
+        pass
+    
+    def JMP(self, operand_a = None, operand_b = None):
+        # jump to the address stored in the given register
+        self.pc = self.reg[operand_a]
+
+    def JEQ(self, operand_a = None, operand_b = None):
+        # If equal flag is set true, jump to the address stored in the given register
+        if self.flag == 0b00000001:
+            self.pc = self.reg[operand_a]
+        else:
+            self.pc += 2
+    
+    def JNE(self, operand_a = None, operand_b = None):
+        # If not equal, jump to the address stored in the given register
+        if self.flag == 0b00000000:
+            self.pc = self.reg[operand_a]
+        else:
+            self.pc += 2
+
+    def MOD(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("MOD", operand_a, operand_b)
+
+    def SHL(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("SHL", operand_a, operand_b)
+
+    def SHR(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("SHR", operand_a, operand_b)
+
+    def XOR(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("XOR", operand_a, operand_b)
+
+    def OR(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("OR", operand_a, operand_b)
+
+    def NOT(self, operand_a = None, operand_b = None):
+        # Handled by alu
+        self.alu("NOT", operand_a, operand_b)
 
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
+        # Add the value in two registers and store the result in registerA
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+
+        # Multiply the values in two registers together and store the result in registerA
+        elif op == "MUL":
+            self.reg[reg_a] *= self.reg[reg_b]
+
+        # Subtract the value in the second register from the first, storing the result in registerA
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+
+        # Compare the values in two registers
+        elif op == "CMP":
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.flag = 0b00000001
+            else:
+                self.flag = 0b00000000
+
+        # Bitwise-AND the values in registerA and registerB, then store the result in registerA
+        elif op == "AND":
+            self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
+
+        # Divide the value in the first register by the value in the second, storing the remainder of the result in registerA
+        elif op == "MOD":
+            if self.reg[reg_b] == 0:
+                print("Cannot mod by value of 0")
+                self.HLT(reg_a, reg_b)
+            else:
+                self.reg[reg_a] %= self.reg[reg_b]
+
+        # Shift the value in registerA left by the number of bits specified in registerB, filling the low bits with 0
+        elif op == "SHL":
+            self.reg[reg_a] << self.reg[reg_b]
+
+        # Shift the value in registerA right by the number of bits specified in registerB, filling the high bits with 0
+        elif op == "SHR":
+            self.reg[reg_a] >> self.reg[reg_b]
+
+        # Perform a bitwise-OR between the values in registerA and registerB, storing the result in registerA
+        elif op == "OR":
+            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+
+        # Perform a bitwise-NOT on the value in a register, storing the result in the register
+        elif op == "NOT":
+            self.reg[reg_a] = ~self.reg[reg_a]
+
+        # Perform a bitwise-XOR between the values in registerA and registerB, storing the result in registerA
+        elif op == "XOR":
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -69,36 +302,35 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        running = True
         
-        while running:
+        while self.running:
             # Set the instruction register using the point counter
             ir = self.ram[self.pc]
             # save the next two operands; some programs will use them
             operand_a = self.ram[self.pc +1]
             operand_b = self.ram[self.pc +2]
-            
-            # Tell the CPU what to do when given a specific instruction
-            # HLT
-            if ir == 0b00000001:
-                # Stop the program
-                running = False
-                # Increment counter, even though the program is stopped
-                self.pc += 1
 
-            # LDI - set the value of a register to an integer
-            # Uses pc and pc+1, pc+2
-            elif ir == 0b10000010:
-                # Use operand_a and operand_b
-                self.reg[operand_a] = operand_b
-                # Increase pc by 3
-                self.pc += 3
-            # PRN - Print the value stored in the given register
-            # Use operand_a
-            elif ir == 0b01000111:
-                # print value in register
-                print(self.reg[operand_a])
-                self.pc += 2
+            if ir in self.branch_table:
+                self.branch_table[ir](operand_a, operand_b)
+
+            # Catch-all
+            else:
+                self.pc += 1
+                print(f"Unknown instruction {ir} at address {self.pc}")
+                sys.exit(1)
+
+            # If the 5th digit is a 1, then don't automatically set the pc
+            # Mask everything but the digit we are interested in
+            if ir & 0b00010000 == 0:
+                # Read the number of arguments from the program byte, 
+                # increment the pc from that info
+
+                # Shift the ir to the right 6 to leave just the two bits telling the num of arguments 
+                number_of_arguments = ir >> 6
+                # Add 1 to account for the first instruction (plus the two arguments)
+                size_of_this_instruction = number_of_arguments + 1
+                # Adjust the pc accordingly
+                self.pc += size_of_this_instruction
 
     def ram_read(self, address):
         """Accept the address to read and return the value stored there"""
@@ -108,3 +340,4 @@ class CPU:
         """Accept a value to write and the address to write it to"""
         self.ram[address] = value
     
+
